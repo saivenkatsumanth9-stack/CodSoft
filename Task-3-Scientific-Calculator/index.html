@@ -1,0 +1,2147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ClassWiz Studio — Scientific Calculator</title>
+<meta name="description" content="A feature-rich scientific calculator inspired by the Casio fx-991CW ClassWiz, with graphing, unit conversion, OCR, and voice input.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.11.0/math.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/4.1.1/tesseract.min.js"></script>
+<style>
+/* ═══════════════════════════════════════════════════
+   DESIGN TOKENS
+═══════════════════════════════════════════════════ */
+:root {
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-display: 'Space Grotesk', system-ui, sans-serif;
+  --radius-sm: 10px;
+  --radius-md: 16px;
+  --radius-lg: 22px;
+  --radius-xl: 28px;
+  --transition: 0.18s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+[data-theme="dark"] {
+  --bg:           #0a0a0a;
+  --bg-surface:   #111111;
+  --bg-elevated:  #1a1a1a;
+  --glass:        rgba(255,255,255,0.04);
+  --glass-hover:  rgba(255,255,255,0.08);
+  --glass-strong: rgba(255,255,255,0.07);
+  --border:       rgba(255,255,255,0.08);
+  --border-mid:   rgba(255,255,255,0.13);
+  --border-hi:    rgba(255,255,255,0.24);
+  --text:         #f0f0f0;
+  --text-sub:     #888888;
+  --text-dim:     #484848;
+  --accent:       #c0c0c0;
+  --accent-hi:    #e8e8e8;
+  --accent2:      #a0a0a0;
+  --accent3:      #d0d0d0;
+  --danger:       #e05050;
+  --good:         #70c080;
+  --key-base:     rgba(255,255,255,0.045);
+  --key-top:      rgba(255,255,255,0.11);
+  --key-shadow:   rgba(0,0,0,0.8);
+  --key-glow:     rgba(200,200,200,0.0);
+  --display-bg:   rgba(0,0,0,0.35);
+  --orb-opacity:  0.12;
+  --glow1: #444444; --glow2: #2a2a2a; --glow3: #333333;
+}
+
+[data-theme="light"] {
+  --bg:           #f0f0f0;
+  --bg-surface:   #f7f7f7;
+  --bg-elevated:  #ffffff;
+  --glass:        rgba(255,255,255,0.65);
+  --glass-hover:  rgba(255,255,255,0.88);
+  --glass-strong: rgba(255,255,255,0.80);
+  --border:       rgba(0,0,0,0.10);
+  --border-mid:   rgba(0,0,0,0.16);
+  --border-hi:    rgba(0,0,0,0.28);
+  --text:         #111111;
+  --text-sub:     #555555;
+  --text-dim:     #999999;
+  --accent:       #222222;
+  --accent-hi:    #000000;
+  --accent2:      #444444;
+  --accent3:      #666666;
+  --danger:       #cc2222;
+  --good:         #226622;
+  --key-base:     rgba(245,245,245,0.95);
+  --key-top:      rgba(255,255,255,1.0);
+  --key-shadow:   rgba(0,0,0,0.18);
+  --key-glow:     rgba(0,0,0,0.0);
+  --display-bg:   rgba(255,255,255,0.55);
+  --orb-opacity:  0.10;
+  --glow1: #cccccc; --glow2: #aaaaaa; --glow3: #bbbbbb;
+}
+
+/* ═══════════════════════════════════════════════════
+   RESET & BASE
+═══════════════════════════════════════════════════ */
+*, *::before, *::after { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html { font-size: 14px; }
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+  transition: background var(--transition), color var(--transition);
+  -webkit-font-smoothing: antialiased;
+}
+button { font-family: var(--font-sans); outline: none; }
+input, select { font-family: var(--font-sans); outline: none; }
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border-mid); border-radius: 99px; }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; } }
+
+/* ═══════════════════════════════════════════════════
+   AMBIENT ORBS
+═══════════════════════════════════════════════════ */
+.orb {
+  position: fixed; border-radius: 50%;
+  filter: blur(80px); pointer-events: none; z-index: 0;
+  opacity: var(--orb-opacity);
+  transition: opacity 0.4s ease;
+}
+.orb1 { width: 480px; height: 480px; background: var(--glow1); top: -160px; left: -120px; animation: orb1 20s ease-in-out infinite; }
+.orb2 { width: 420px; height: 420px; background: var(--glow2); bottom: -140px; right: -100px; animation: orb2 24s ease-in-out infinite; }
+.orb3 { width: 300px; height: 300px; background: var(--glow3); top: 35%; left: 50%; animation: orb3 28s ease-in-out infinite; }
+@keyframes orb1 { 0%,100%{transform:translate(0,0) scale(1)}  50%{transform:translate(80px,90px) scale(1.15)} }
+@keyframes orb2 { 0%,100%{transform:translate(0,0) scale(1)}  50%{transform:translate(-60px,-70px) scale(1.1)} }
+@keyframes orb3 { 0%,100%{transform:translate(-50%,0)}        50%{transform:translate(-50%,60px)} }
+
+/* ═══════════════════════════════════════════════════
+   LAYOUT SHELL
+═══════════════════════════════════════════════════ */
+.page-root {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 16px;
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 18px 14px 48px;
+}
+@media (min-width: 900px) {
+  .page-root {
+    grid-template-columns: 300px 1fr;
+    align-items: start;
+    padding: 24px 24px 48px;
+    gap: 20px;
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   GLASS PANEL
+═══════════════════════════════════════════════════ */
+.glass-panel {
+  background: var(--glass);
+  border: 1px solid var(--border-mid);
+  border-radius: var(--radius-xl);
+  backdrop-filter: blur(20px) saturate(160%);
+  -webkit-backdrop-filter: blur(20px) saturate(160%);
+  box-shadow: 0 24px 64px -20px rgba(0,0,0,0.55), inset 0 1px 0 rgba(255,255,255,0.08);
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+
+/* ═══════════════════════════════════════════════════
+   FORMULA PANEL (LEFT SIDEBAR)
+═══════════════════════════════════════════════════ */
+.formula-aside {
+  padding: 18px;
+}
+@media (min-width: 900px) {
+  .formula-aside {
+    position: sticky;
+    top: 24px;
+    max-height: calc(100vh - 48px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+}
+.formula-aside-inner {
+  flex: 1;
+  overflow-y: auto;
+  padding-right: 2px;
+  margin-right: -2px;
+}
+
+.formula-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.formula-header-icon {
+  width: 30px; height: 30px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, var(--accent), var(--accent2));
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.formula-header-icon svg { width: 15px; height: 15px; color: #fff; }
+.formula-header h2 {
+  font-family: var(--font-display);
+  font-size: 15px; font-weight: 700;
+  margin: 0;
+  flex: 1;
+}
+.formula-search {
+  width: 100%;
+  background: var(--glass-strong);
+  border: 1px solid var(--border-mid);
+  border-radius: var(--radius-sm);
+  padding: 9px 12px;
+  color: var(--text);
+  font-size: 12.5px;
+  margin-bottom: 10px;
+  transition: border-color var(--transition);
+}
+.formula-search::placeholder { color: var(--text-dim); }
+.formula-search:focus { border-color: var(--accent); }
+
+details.fcat {
+  border-radius: 12px;
+  margin-bottom: 6px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  background: var(--glass-strong);
+}
+details.fcat summary {
+  padding: 10px 13px;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--text);
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  user-select: none;
+}
+details.fcat summary::-webkit-details-marker { display: none; }
+details.fcat summary .toggle-icon {
+  width: 18px; height: 18px;
+  border-radius: 6px;
+  background: var(--glass);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--text-sub);
+  font-size: 13px; font-weight: 400;
+  flex-shrink: 0;
+}
+details.fcat[open] summary .toggle-icon { color: var(--accent); }
+.frow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 9px 13px;
+  border-top: 1px solid var(--border);
+  transition: background var(--transition);
+}
+.frow:hover { background: var(--glass-hover); }
+.frow .fmeta { min-width: 0; flex: 1; }
+.frow .fname { font-size: 10.5px; color: var(--text-dim); margin-bottom: 2px; font-weight: 500; }
+.frow .fexpr {
+  font-family: var(--font-display);
+  font-size: 12.5px;
+  color: var(--text);
+  word-break: break-word;
+  line-height: 1.4;
+}
+.factions { display: flex; gap: 5px; flex-shrink: 0; }
+.fmini {
+  width: 26px; height: 26px;
+  border-radius: 8px;
+  border: 1px solid var(--border-mid);
+  background: var(--glass);
+  color: var(--text-sub);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  transition: all var(--transition);
+}
+.fmini:hover { background: var(--glass-hover); color: var(--text); }
+.fmini:active { transform: scale(0.88); }
+.fmini svg { width: 12px; height: 12px; }
+.fmini.insertf { color: var(--accent); border-color: rgba(200,200,200,0.3); }
+.fmini.insertf:hover { background: rgba(200,200,200,0.1); }
+.frow.fhidden { display: none; }
+
+/* ═══════════════════════════════════════════════════
+   MAIN CALCULATOR COLUMN
+═══════════════════════════════════════════════════ */
+.calc-column {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+}
+
+/* ─── TOP BAR ─── */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.brand { display: flex; flex-direction: column; gap: 1px; }
+.brand .eyebrow {
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  font-weight: 600;
+}
+.brand h1 {
+  font-family: var(--font-display);
+  font-size: 18px;
+  margin: 0;
+  font-weight: 700;
+  background: linear-gradient(120deg, #e8e8e8, #888888);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.topbar-actions { display: flex; gap: 8px; }
+
+.icon-btn {
+  width: 38px; height: 38px;
+  border-radius: 12px;
+  border: 1px solid var(--border-mid);
+  background: var(--glass-strong);
+  backdrop-filter: blur(10px);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  color: var(--text-sub);
+  transition: all var(--transition);
+}
+.icon-btn:hover { color: var(--text); background: var(--glass-hover); border-color: var(--border-hi); }
+.icon-btn:active { transform: scale(0.88); }
+.icon-btn svg { width: 17px; height: 17px; }
+.icon-btn.active { color: var(--accent); border-color: rgba(200,200,200,0.4); background: rgba(200,200,200,0.1); }
+
+/* ─── TAB NAV ─── */
+.tab-nav {
+  display: flex;
+  gap: 6px;
+  background: var(--glass);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 5px;
+  backdrop-filter: blur(12px);
+}
+.tab-btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  padding: 8px 4px;
+  border-radius: 12px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  transition: all var(--transition);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+.tab-btn svg { width: 16px; height: 16px; flex-shrink: 0; }
+.tab-btn:hover { color: var(--text-sub); background: var(--glass-hover); }
+.tab-btn.active {
+  background: var(--glass-strong);
+  border-color: var(--border-hi);
+  color: var(--text);
+  box-shadow: 0 2px 12px -4px rgba(180,180,180,0.3);
+}
+.tab-btn.active svg { color: var(--accent); }
+
+/* ═══════════════════════════════════════════════════
+   PANELS
+═══════════════════════════════════════════════════ */
+.panel { padding: 18px; }
+
+/* ─── DISPLAY AREA ─── */
+.display {
+  background: var(--display-bg);
+  border: 1px solid var(--border-mid);
+  border-radius: var(--radius-lg);
+  padding: 16px 16px 14px;
+  margin-bottom: 14px;
+  position: relative;
+  min-height: 130px;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.display::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(135deg, rgba(255,255,255,0.03) 0%, transparent 60%);
+  pointer-events: none;
+}
+
+.display-toprow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.display-badges { display: flex; align-items: center; gap: 6px; }
+.badge {
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 2px 7px;
+  border-radius: 6px;
+}
+.badge-mode { background: rgba(160,160,160,0.12); color: var(--accent2); }
+.badge-mem  { background: rgba(200,200,200,0.10); color: var(--accent); }
+
+.display-actions { display: flex; gap: 6px; }
+.disp-action {
+  width: 28px; height: 28px;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--glass);
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer;
+  color: var(--text-dim);
+  transition: all var(--transition);
+}
+.disp-action:hover { color: var(--text); background: var(--glass-hover); }
+.disp-action:active { transform: scale(0.88); }
+.disp-action svg { width: 13px; height: 13px; }
+
+.display-body { flex: 1; display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; }
+.expr-line {
+  font-family: var(--font-display);
+  font-size: 14px;
+  color: var(--text-sub);
+  word-break: break-all;
+  line-height: 1.4;
+  min-height: 20px;
+}
+.preview-line {
+  font-family: var(--font-display);
+  font-size: 11.5px;
+  color: var(--text-dim);
+  min-height: 16px;
+  transition: opacity var(--transition);
+}
+.result-line {
+  font-family: var(--font-display);
+  font-size: 38px;
+  font-weight: 700;
+  word-break: break-all;
+  line-height: 1.1;
+  color: var(--text);
+  transition: color var(--transition);
+}
+.result-line.pop { animation: pop 0.25s cubic-bezier(0.34,1.56,0.64,1); }
+.result-line.shake { animation: shake 0.38s ease; color: var(--danger); }
+@keyframes pop   { 0%{transform:translateY(8px) scale(0.96);opacity:0.3} 100%{transform:none;opacity:1} }
+@keyframes shake { 0%,100%{transform:translateX(0)} 20%{transform:translateX(-7px)} 40%{transform:translateX(7px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(4px)} }
+
+/* ─── QUICK ACTIONS BAR ─── */
+.quick-bar {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+  align-items: center;
+}
+.qbtn {
+  flex: 1;
+  padding: 7px 10px;
+  border-radius: 10px;
+  border: 1px solid var(--border-mid);
+  background: var(--glass-strong);
+  color: var(--text-sub);
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  text-align: center;
+  transition: all var(--transition);
+  letter-spacing: 0.02em;
+}
+.qbtn:hover { color: var(--text); background: var(--glass-hover); border-color: var(--border-hi); }
+.qbtn:active { transform: scale(0.95); }
+.qbtn.qbtn-accent { background: rgba(200,200,200,0.10); color: var(--accent); border-color: rgba(200,200,200,0.25); }
+.qbtn.qbtn-accent:hover { background: rgba(200,200,200,0.18); }
+
+/* ─── STEP BOX ─── */
+.step-box {
+  margin-bottom: 12px;
+  padding: 13px 14px;
+  border-radius: 12px;
+  background: var(--glass-strong);
+  border: 1px solid var(--border-mid);
+  font-size: 12.5px;
+  line-height: 1.8;
+  font-family: var(--font-display);
+}
+.step-box .step-row {
+  padding: 3px 0;
+  border-bottom: 1px dashed var(--border);
+  color: var(--text-sub);
+}
+.step-box .step-row:last-child {
+  border-bottom: none;
+  font-weight: 700;
+  color: var(--good);
+  font-size: 13.5px;
+  padding-top: 6px;
+}
+
+/* ═══════════════════════════════════════════════════
+   KEYPAD GRID
+═══════════════════════════════════════════════════ */
+.keypad { display: flex; flex-direction: column; gap: 7px; }
+.key-row {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 7px;
+}
+
+.key {
+  position: relative;
+  border: 1px solid var(--border);
+  border-radius: 13px;
+  padding: 0;
+  height: 46px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1px;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  cursor: pointer;
+  background: linear-gradient(170deg, var(--key-top) 0%, var(--key-base) 100%);
+  box-shadow: 0 4px 0 0 var(--key-shadow), 0 8px 16px -8px rgba(0,0,0,0.4);
+  transition: transform 0.07s ease, box-shadow 0.07s ease, background 0.15s ease;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.key:hover { background: linear-gradient(170deg, var(--glass-hover) 0%, var(--glass-strong) 100%); }
+.key:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 0 var(--key-shadow), 0 2px 4px -2px rgba(0,0,0,0.4);
+}
+.key .key-sub {
+  font-size: 8.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  opacity: 0.5;
+  color: var(--accent2);
+  line-height: 1;
+}
+
+/* Key variants */
+.key-num {
+  font-size: 17px;
+  font-weight: 600;
+  font-family: var(--font-display);
+}
+.key-op {
+  color: var(--accent2);
+  font-size: 16px;
+}
+.key-fn {
+  font-size: 11.5px;
+  color: var(--text-sub);
+}
+.key-eq {
+  background: linear-gradient(170deg, #555555 0%, #1a1a1a 100%);
+  color: #fff;
+  border-color: rgba(180,180,180,0.25);
+  box-shadow: 0 4px 0 0 #000000, 0 8px 20px -6px rgba(80,80,80,0.5);
+}
+.key-eq:hover { background: linear-gradient(170deg, #666666 0%, #2a2a2a 100%); }
+.key-eq:active { box-shadow: 0 1px 0 0 #000000; }
+.key-del { color: var(--danger); }
+.key-ac  { color: var(--danger); font-size: 12px; }
+.key-const { color: var(--accent3); }
+.key-wide { grid-column: span 2; }
+.key-zero { font-size: 17px; font-family: var(--font-display); font-weight: 600; }
+
+/* Key glow effect on click */
+.key::after {
+  content: '';
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  background: radial-gradient(ellipse at 50% 0%, rgba(255,255,255,0.1), transparent 70%);
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  pointer-events: none;
+}
+.key:active::after { opacity: 1; }
+
+/* ═══════════════════════════════════════════════════
+   GRAPH PANEL
+═══════════════════════════════════════════════════ */
+.graph-canvas-wrap {
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid var(--border-mid);
+  background: var(--display-bg);
+  position: relative;
+}
+#graphcv { display: block; width: 100%; height: 260px; }
+
+.graph-controls {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  margin-top: 10px;
+  align-items: center;
+}
+.field-group {
+  display: flex;
+  gap: 8px;
+  margin-top: 10px;
+}
+.field-group.stacked { flex-direction: column; }
+.field-group.three { grid-template-columns: repeat(3,1fr); display: grid; }
+
+.text-input {
+  flex: 1;
+  background: var(--glass-strong);
+  border: 1px solid var(--border-mid);
+  border-radius: var(--radius-sm);
+  padding: 10px 13px;
+  color: var(--text);
+  font-size: 13px;
+  transition: border-color var(--transition);
+  min-width: 0;
+}
+.text-input::placeholder { color: var(--text-dim); }
+.text-input:focus { border-color: var(--accent); }
+
+.num-input {
+  background: var(--glass-strong);
+  border: 1px solid var(--border-mid);
+  border-radius: var(--radius-sm);
+  padding: 10px 13px;
+  color: var(--text);
+  font-size: 13px;
+  width: 70px;
+  transition: border-color var(--transition);
+}
+.num-input:focus { border-color: var(--accent); }
+
+.btn {
+  padding: 10px 16px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: linear-gradient(135deg, #3a3a3a, #111111);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 12.5px;
+  white-space: nowrap;
+  box-shadow: 0 4px 14px -4px rgba(0,0,0,0.5);
+  transition: all var(--transition);
+}
+.btn:hover { transform: translateY(-1px); box-shadow: 0 6px 18px -4px rgba(0,0,0,0.4); }
+.btn:active { transform: scale(0.96); }
+.btn.btn-sm { padding: 8px 12px; font-size: 11.5px; }
+.btn.btn-ghost {
+  background: var(--glass-strong);
+  color: var(--text-sub);
+  border: 1px solid var(--border-mid);
+  box-shadow: none;
+}
+.btn.btn-ghost:hover { color: var(--text); background: var(--glass-hover); border-color: var(--border-hi); transform: none; }
+
+.select-input {
+  background: var(--glass-strong);
+  border: 1px solid var(--border-mid);
+  border-radius: var(--radius-sm);
+  padding: 10px 13px;
+  color: var(--text);
+  font-size: 12.5px;
+  flex: 1;
+  cursor: pointer;
+  transition: border-color var(--transition);
+  min-width: 0;
+}
+.select-input:focus { border-color: var(--accent); }
+.select-input option { background: var(--bg-surface); }
+
+.section-label {
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text-dim);
+  margin: 16px 0 8px;
+}
+
+/* ═══════════════════════════════════════════════════
+   CONVERTER PANEL
+═══════════════════════════════════════════════════ */
+.convert-arrow {
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 18px;
+  padding: 4px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+.convert-arrow::before, .convert-arrow::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border);
+}
+.convert-result-wrap {
+  background: var(--glass-strong);
+  border: 1px solid var(--border-mid);
+  border-radius: var(--radius-md);
+  padding: 16px;
+  text-align: center;
+}
+.convert-result {
+  font-family: var(--font-display);
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--text);
+  word-break: break-all;
+}
+.convert-unit-label {
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+.convert-note {
+  font-size: 11px;
+  color: var(--text-dim);
+  line-height: 1.6;
+  margin-top: 12px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--glass);
+  border: 1px solid var(--border);
+}
+
+/* ═══════════════════════════════════════════════════
+   IMAGE SCAN PANEL
+═══════════════════════════════════════════════════ */
+.dropzone {
+  border: 1.5px dashed var(--border-hi);
+  border-radius: var(--radius-md);
+  padding: 30px 20px;
+  text-align: center;
+  cursor: pointer;
+  transition: all var(--transition);
+  background: var(--glass);
+}
+.dropzone:hover { border-color: var(--accent); background: rgba(200,200,200,0.05); }
+.dropzone-icon {
+  width: 48px; height: 48px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, rgba(200,200,200,0.15), rgba(160,160,160,0.10));
+  border: 1px solid rgba(200,200,200,0.2);
+  display: flex; align-items: center; justify-content: center;
+  margin: 0 auto 12px;
+}
+.dropzone-icon svg { width: 22px; height: 22px; color: var(--accent); }
+.dropzone-title { font-weight: 600; font-size: 14px; color: var(--text); margin-bottom: 4px; }
+.dropzone-sub { font-size: 11.5px; color: var(--text-dim); }
+
+.img-preview {
+  max-width: 100%;
+  border-radius: 12px;
+  margin-top: 12px;
+  display: none;
+  border: 1px solid var(--border-mid);
+}
+.ocr-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+  color: var(--text-sub);
+  padding: 10px 0;
+}
+.spinner {
+  width: 16px; height: 16px;
+  border: 2px solid var(--border-mid);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ═══════════════════════════════════════════════════
+   HISTORY PANEL
+═══════════════════════════════════════════════════ */
+.hist-list {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  max-height: 420px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+.hist-empty {
+  text-align: center;
+  color: var(--text-dim);
+  font-size: 13px;
+  padding: 40px 20px;
+  line-height: 1.6;
+}
+.hist-empty svg { width: 32px; height: 32px; color: var(--text-dim); margin-bottom: 10px; opacity: 0.5; }
+.hist-item {
+  padding: 12px 14px;
+  border-radius: 13px;
+  background: var(--glass-strong);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: all var(--transition);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.hist-item:hover { border-color: var(--border-hi); background: var(--glass-hover); }
+.hist-item-body { min-width: 0; flex: 1; }
+.hist-item-expr { font-size: 11px; color: var(--text-dim); margin-bottom: 3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.hist-item-result { font-family: var(--font-display); font-size: 17px; font-weight: 700; color: var(--text); }
+.hist-item-use {
+  width: 28px; height: 28px;
+  border-radius: 8px;
+  border: 1px solid var(--border-mid);
+  background: transparent;
+  color: var(--accent);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: all var(--transition);
+}
+.hist-item-use:hover { background: rgba(200,200,200,0.1); }
+.hist-item-use svg { width: 12px; height: 12px; }
+
+/* ═══════════════════════════════════════════════════
+   SOLVE RESULT
+═══════════════════════════════════════════════════ */
+.solve-result {
+  padding: 13px 14px;
+  border-radius: 12px;
+  background: var(--glass-strong);
+  border: 1px solid var(--border-mid);
+  font-size: 13px;
+  font-family: var(--font-display);
+  line-height: 1.8;
+  margin-top: 10px;
+}
+.solve-result .solve-row { padding: 2px 0; color: var(--text-sub); border-bottom: 1px dashed var(--border); }
+.solve-result .solve-row:last-child { border: none; color: var(--good); font-weight: 700; }
+
+/* ═══════════════════════════════════════════════════
+   MEMORY INDICATOR
+═══════════════════════════════════════════════════ */
+.mem-indicator {
+  font-size: 10px;
+  color: var(--accent);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+/* ═══════════════════════════════════════════════════
+   VOICE MIC ANIMATION
+═══════════════════════════════════════════════════ */
+.icon-btn.mic-active {
+  color: var(--danger) !important;
+  border-color: rgba(220,80,80,0.4) !important;
+  background: rgba(220,80,80,0.1) !important;
+  animation: mic-pulse 1.2s ease-in-out infinite;
+}
+@keyframes mic-pulse {
+  0%,100% { box-shadow: 0 0 0 0 rgba(220,80,80,0.3); }
+  50%      { box-shadow: 0 0 0 8px rgba(220,80,80,0); }
+}
+
+/* ═══════════════════════════════════════════════════
+   UTILITY
+═══════════════════════════════════════════════════ */
+.hidden { display: none !important; }
+.divider {
+  height: 1px;
+  background: var(--border);
+  margin: 14px 0;
+}
+.text-center { text-align: center; }
+.text-good { color: var(--good); }
+.text-danger { color: var(--danger); }
+.fw-700 { font-weight: 700; }
+</style>
+</head>
+<body data-theme="dark">
+
+<!-- Ambient background orbs -->
+<div class="orb orb1"></div>
+<div class="orb orb2"></div>
+<div class="orb orb3"></div>
+
+<!-- ════════════════════════════════════════════════════
+     PAGE ROOT GRID
+════════════════════════════════════════════════════ -->
+<div class="page-root">
+
+  <!-- ─── LEFT: FORMULA REFERENCE SIDEBAR ─── -->
+  <aside class="glass-panel formula-aside" aria-label="Formula Reference">
+    <div class="formula-header">
+      <div class="formula-header-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+      </div>
+      <h2>Formula Library</h2>
+    </div>
+    <input type="text" id="formulaSearch" class="formula-search" placeholder="Search — circle, derivative, SI…" aria-label="Search formulas">
+    <div class="formula-aside-inner" id="formulaList"></div>
+  </aside>
+
+  <!-- ─── RIGHT: CALCULATOR COLUMN ─── -->
+  <div class="calc-column">
+
+    <!-- Top Bar -->
+    <div class="topbar">
+      <div class="brand">
+        <span class="eyebrow">ClassWiz Studio</span>
+        <h1>Scientific Calculator</h1>
+      </div>
+      <div class="topbar-actions">
+        <button class="icon-btn" id="themeBtn" title="Toggle theme" aria-label="Toggle theme">
+          <svg id="themeIcon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>
+          </svg>
+        </button>
+        <button class="icon-btn" id="micBtn" title="Voice input" aria-label="Voice input">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+            <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v4M8 23h8"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Tab Navigation -->
+    <nav class="tab-nav" role="tablist" aria-label="Calculator modes">
+      <button class="tab-btn active" data-tab="calc" role="tab" aria-selected="true" id="tab-calc">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="4" y="2" width="16" height="20" rx="2.5"/><path d="M8 6h8"/><circle cx="8.5" cy="11" r="0.5" fill="currentColor"/><circle cx="12" cy="11" r="0.5" fill="currentColor"/><circle cx="15.5" cy="11" r="0.5" fill="currentColor"/><circle cx="8.5" cy="15" r="0.5" fill="currentColor"/><circle cx="12" cy="15" r="0.5" fill="currentColor"/><circle cx="15.5" cy="15" r="0.5" fill="currentColor"/></svg>
+        Calc
+      </button>
+      <button class="tab-btn" data-tab="graph" role="tab" aria-selected="false" id="tab-graph">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 3v18h18"/><path d="M7 14l4-6 3 4 5-8"/></svg>
+        Graph
+      </button>
+      <button class="tab-btn" data-tab="convert" role="tab" aria-selected="false" id="tab-convert">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M7 3L3 7l4 4M3 7h13M17 21l4-4-4-4M21 17H8"/></svg>
+        Convert
+      </button>
+      <button class="tab-btn" data-tab="image" role="tab" aria-selected="false" id="tab-image">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M8 6l2-3h4l2 3"/><circle cx="12" cy="13" r="3.5"/></svg>
+        Scan
+      </button>
+      <button class="tab-btn" data-tab="history" role="tab" aria-selected="false" id="tab-history">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+        History
+      </button>
+    </nav>
+
+    <!-- ══════════ CALC PANEL ══════════ -->
+    <div class="glass-panel panel" id="panel-calc" role="tabpanel" aria-labelledby="tab-calc">
+
+      <!-- Display -->
+      <div class="display" id="calcDisplay">
+        <div class="display-toprow">
+          <div class="display-badges">
+            <span class="badge badge-mode" id="anglePill">DEG</span>
+            <span class="badge badge-mem hidden" id="memPill">M=0</span>
+          </div>
+          <div class="display-actions">
+            <button class="disp-action" id="copyBtn" title="Copy result" aria-label="Copy result">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+            </button>
+            <button class="disp-action" id="shareBtn" title="Download result card" aria-label="Download result card">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12M7 8l5-5 5 5M5 21h14"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="display-body">
+          <div class="expr-line"   id="exprLine"  >&nbsp;</div>
+          <div class="preview-line" id="previewLine">&nbsp;</div>
+          <div class="result-line"  id="resultLine">0</div>
+        </div>
+      </div>
+
+      <!-- Quick action bar -->
+      <div class="quick-bar">
+        <button class="qbtn"          id="angleToggle">DEG / RAD</button>
+        <button class="qbtn qbtn-accent" id="stepsBtn">▸ Explain</button>
+        <button class="qbtn"          id="fracBtn">a/b</button>
+        <button class="qbtn"          id="modBtn">mod</button>
+      </div>
+
+      <!-- Steps box (hidden by default) -->
+      <div class="step-box hidden" id="stepBox"></div>
+
+      <!-- ── KEYPAD ── -->
+      <div class="keypad">
+
+        <!-- Row 1: 2nd / brackets / memory / AC -->
+        <div class="key-row">
+          <button class="key key-fn"  data-act="2nd"    id="key-2nd">2nd</button>
+          <button class="key key-fn"  data-ins="("      >(</button>
+          <button class="key key-fn"  data-ins=")"      >)</button>
+          <button class="key key-fn"  data-act="mplus"  >M+</button>
+          <button class="key key-fn"  data-act="mminus" >M−</button>
+          <button class="key key-ac"  data-act="ac"     >AC</button>
+        </div>
+
+        <!-- Row 2: sin cos tan / MR MC / DEL -->
+        <div class="key-row">
+          <button class="key key-fn"  data-ins="sin(" id="key-sin">sin</button>
+          <button class="key key-fn"  data-ins="cos(" id="key-cos">cos</button>
+          <button class="key key-fn"  data-ins="tan(" id="key-tan">tan</button>
+          <button class="key key-fn"  data-act="mr"         >MR</button>
+          <button class="key key-fn"  data-act="mc"         >MC</button>
+          <button class="key key-del" data-act="del"        >⌫</button>
+        </div>
+
+        <!-- Row 3: log ln √ / x^y x² x! -->
+        <div class="key-row">
+          <button class="key key-fn"  data-ins="log("   >log</button>
+          <button class="key key-fn"  data-ins="ln("    >ln</button>
+          <button class="key key-fn"  data-ins="sqrt("  >√</button>
+          <button class="key key-fn"  data-ins="^"      >x<sup>y</sup></button>
+          <button class="key key-fn"  data-ins="^2"     >x²</button>
+          <button class="key key-fn"  data-ins="!"      >n!</button>
+        </div>
+
+        <!-- Row 4: 7 8 9 / ÷ π e -->
+        <div class="key-row">
+          <button class="key key-num" data-ins="7">7</button>
+          <button class="key key-num" data-ins="8">8</button>
+          <button class="key key-num" data-ins="9">9</button>
+          <button class="key key-op"  data-ins="/">÷</button>
+          <button class="key key-const" data-ins="pi">π</button>
+          <button class="key key-const" data-ins="e" >e</button>
+        </div>
+
+        <!-- Row 5: 4 5 6 / × % Ans -->
+        <div class="key-row">
+          <button class="key key-num" data-ins="4">4</button>
+          <button class="key key-num" data-ins="5">5</button>
+          <button class="key key-num" data-ins="6">6</button>
+          <button class="key key-op"  data-ins="*">×</button>
+          <button class="key key-op"  data-ins="%">%</button>
+          <button class="key key-fn"  data-ins="Ans">Ans</button>
+        </div>
+
+        <!-- Row 6: 1 2 3 / − negate ×10ˣ -->
+        <div class="key-row">
+          <button class="key key-num" data-ins="1">1</button>
+          <button class="key key-num" data-ins="2">2</button>
+          <button class="key key-num" data-ins="3">3</button>
+          <button class="key key-op"  data-ins="-">−</button>
+          <button class="key key-fn"  data-act="negate">(−)</button>
+          <button class="key key-fn"  data-ins="e">×10ˣ</button>
+        </div>
+
+        <!-- Row 7: 0 (wide) . + = (wide) -->
+        <div class="key-row">
+          <button class="key key-zero key-wide" data-ins="0">0</button>
+          <button class="key key-fn"            data-ins=".">.</button>
+          <button class="key key-op"            data-ins="+">+</button>
+          <button class="key key-eq key-wide"   data-act="equals" id="key-equals">=</button>
+        </div>
+
+      </div><!-- /keypad -->
+    </div><!-- /panel-calc -->
+
+    <!-- ══════════ GRAPH PANEL ══════════ -->
+    <div class="glass-panel panel hidden" id="panel-graph" role="tabpanel" aria-labelledby="tab-graph">
+
+      <div class="graph-canvas-wrap">
+        <canvas id="graphcv" width="900" height="520"></canvas>
+      </div>
+
+      <div class="graph-controls">
+        <div class="field-group" style="margin-top:10px; grid-column: 1/-1;">
+          <input type="text" id="graphFn" class="text-input" placeholder="Enter f(x) — e.g.  sin(x)*x" value="sin(x)*x" aria-label="Function to plot">
+          <button class="btn" id="plotBtn">Plot</button>
+        </div>
+      </div>
+      <div class="field-group" style="margin-top:8px; gap:6px;">
+        <button class="btn btn-ghost btn-sm" id="zoomIn">＋ Zoom in</button>
+        <button class="btn btn-ghost btn-sm" id="zoomOut">− Zoom out</button>
+        <button class="btn btn-ghost btn-sm" id="zoomReset">↺ Reset</button>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="section-label">Equation Solver</div>
+      <select id="solveType" class="select-input" aria-label="Equation type">
+        <option value="quad">Quadratic — ax² + bx + c = 0</option>
+        <option value="linear">Linear System — a₁x + b₁y = c₁ and a₂x + b₂y = c₂</option>
+      </select>
+      <div id="solveFields" style="margin-top:10px;"></div>
+      <button class="btn" id="solveBtn" style="margin-top:10px; width:100%;">Solve</button>
+      <div class="solve-result hidden" id="solveResult"></div>
+
+    </div><!-- /panel-graph -->
+
+    <!-- ══════════ CONVERTER PANEL ══════════ -->
+    <div class="glass-panel panel hidden" id="panel-convert" role="tabpanel" aria-labelledby="tab-convert">
+
+      <div class="section-label">Category</div>
+      <select id="convCategory" class="select-input" aria-label="Conversion category">
+        <option value="length">Length</option>
+        <option value="weight">Weight / Mass</option>
+        <option value="temp">Temperature</option>
+        <option value="area">Area</option>
+        <option value="volume">Volume</option>
+        <option value="time">Time</option>
+      </select>
+
+      <div class="field-group" style="margin-top:12px;">
+        <input type="number" id="convInput" class="text-input" value="1" aria-label="Input value">
+        <select id="convFrom" class="select-input" aria-label="Convert from"></select>
+      </div>
+
+      <div class="convert-arrow">→</div>
+
+      <div class="convert-result-wrap">
+        <div class="convert-result" id="convOutput">—</div>
+        <div class="convert-unit-label" id="convUnitLabel">select units above</div>
+      </div>
+
+      <div class="field-group" style="margin-top:10px;">
+        <select id="convTo" class="select-input" aria-label="Convert to"></select>
+      </div>
+
+      <div class="convert-note">
+        All conversions use fixed SI / physical constants. Currency conversion isn't included since it requires a live exchange-rate feed.
+      </div>
+
+    </div><!-- /panel-convert -->
+
+    <!-- ══════════ IMAGE SCAN PANEL ══════════ -->
+    <div class="glass-panel panel hidden" id="panel-image" role="tabpanel" aria-labelledby="tab-image">
+
+      <div class="dropzone" id="dropzone" role="button" tabindex="0" aria-label="Upload or photograph an expression">
+        <div class="dropzone-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="6" width="18" height="14" rx="2"/><path d="M8 6l2-3h4l2 3"/><circle cx="12" cy="13" r="3.5"/></svg>
+        </div>
+        <div class="dropzone-title">Upload or photograph an expression</div>
+        <div class="dropzone-sub">JPEG, PNG, WebP — tap to select or drag & drop</div>
+      </div>
+      <input type="file" id="imgInput" accept="image/*" capture="environment" class="hidden" aria-label="Image file input">
+      <img id="imgPreview" class="img-preview" alt="Uploaded expression preview">
+
+      <div class="ocr-status hidden" id="ocrStatus">
+        <div class="spinner"></div>
+        <span>Reading the image with OCR…</span>
+      </div>
+
+      <div class="field-group hidden" id="ocrEditRow" style="margin-top:12px;">
+        <input type="text" id="ocrExpr" class="text-input" placeholder="Recognized expression — edit if needed" aria-label="Recognized expression">
+        <button class="btn" id="ocrSolveBtn">Solve</button>
+      </div>
+
+      <div class="step-box hidden" id="ocrSteps"></div>
+
+      <div class="convert-note" style="margin-top:12px;">
+        Accuracy depends on image clarity. Clear printed text works best — complex handwriting, fractions, or stacked notation may need a manual edit before solving.
+      </div>
+
+    </div><!-- /panel-image -->
+
+    <!-- ══════════ HISTORY PANEL ══════════ -->
+    <div class="glass-panel panel hidden" id="panel-history" role="tabpanel" aria-labelledby="tab-history">
+      <div class="hist-list" id="histList">
+        <div class="hist-empty" id="histEmpty">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+          <div>No calculations yet.</div>
+          <div>Your history will appear here.</div>
+        </div>
+      </div>
+    </div><!-- /panel-history -->
+
+  </div><!-- /calc-column -->
+</div><!-- /page-root -->
+
+
+<script>
+'use strict';
+
+/* ════════════════════════════════════════════════════
+   THEME TOGGLE
+════════════════════════════════════════════════════ */
+const themeBtn  = document.getElementById('themeBtn');
+const themeIcon = document.getElementById('themeIcon');
+const MOON_PATH = `<circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>`;
+const SUN_PATH  = `<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>`;
+let currentTheme = 'dark';
+themeBtn.addEventListener('click', () => {
+  currentTheme = currentTheme === 'dark' ? 'light' : 'dark';
+  document.body.setAttribute('data-theme', currentTheme);
+  themeIcon.innerHTML = currentTheme === 'dark' ? MOON_PATH : SUN_PATH;
+  if (graphFnStr) drawGraph(graphFnStr);
+});
+
+/* ════════════════════════════════════════════════════
+   TAB NAVIGATION
+════════════════════════════════════════════════════ */
+const allTabs   = document.querySelectorAll('.tab-btn');
+const allPanels = document.querySelectorAll('[id^="panel-"]');
+allTabs.forEach(tab => {
+  tab.addEventListener('click', () => {
+    allTabs.forEach(t => { t.classList.remove('active'); t.setAttribute('aria-selected','false'); });
+    allPanels.forEach(p => p.classList.add('hidden'));
+    tab.classList.add('active');
+    tab.setAttribute('aria-selected','true');
+    const panel = document.getElementById('panel-' + tab.dataset.tab);
+    if (panel) panel.classList.remove('hidden');
+    if (tab.dataset.tab === 'graph') setTimeout(() => drawGraph(graphFnStr), 50);
+  });
+});
+
+/* ════════════════════════════════════════════════════
+   MATH ENGINE
+════════════════════════════════════════════════════ */
+let angleMode = 'deg';
+let ansValue  = 0;
+let memValue  = 0;
+
+const mx = math.create(math.all);
+const toRad = x => x * Math.PI / 180;
+const toDeg = x => x * 180 / Math.PI;
+
+mx.import({
+  sin:  x => Math.sin(angleMode === 'deg' ? toRad(x) : x),
+  cos:  x => Math.cos(angleMode === 'deg' ? toRad(x) : x),
+  tan:  x => Math.tan(angleMode === 'deg' ? toRad(x) : x),
+  asin: x => { const r = Math.asin(x); return angleMode === 'deg' ? toDeg(r) : r; },
+  acos: x => { const r = Math.acos(x); return angleMode === 'deg' ? toDeg(r) : r; },
+  atan: x => { const r = Math.atan(x); return angleMode === 'deg' ? toDeg(r) : r; },
+}, { override: true });
+
+function formatNum(v) {
+  if (typeof v === 'object' && v !== null && v.toString) v = v.toString();
+  if (typeof v === 'number') {
+    if (Number.isNaN(v))    return 'Not a number';
+    if (!isFinite(v))       return v > 0 ? '∞' : '-∞';
+    if (Number.isInteger(v)) return v.toString();
+    const s = parseFloat(v.toPrecision(10)).toString();
+    return s;
+  }
+  return String(v);
+}
+
+function sanitizeExpr(raw) {
+  return raw
+    .replace(/Ans/g, '(' + ansValue + ')')
+    .replace(/×/g, '*')
+    .replace(/÷/g, '/')
+    .replace(/−/g, '-')
+    .replace(/mod/gi, '%');
+}
+
+function safeEval(exprStr) {
+  return mx.evaluate(sanitizeExpr(exprStr));
+}
+
+/* ════════════════════════════════════════════════════
+   DISPLAY STATE
+════════════════════════════════════════════════════ */
+let currentExpr = '';
+let lastGoodResult = '0';
+
+const elExpr    = document.getElementById('exprLine');
+const elPreview = document.getElementById('previewLine');
+const elResult  = document.getElementById('resultLine');
+const elAngle   = document.getElementById('anglePill');
+const elMem     = document.getElementById('memPill');
+
+let previewTimer = null;
+
+function updateDisplay() {
+  elExpr.textContent = currentExpr || '\u00A0';
+  clearTimeout(previewTimer);
+  previewTimer = setTimeout(() => {
+    if (!currentExpr) { elPreview.textContent = '\u00A0'; return; }
+    const trailingOp = /[+\-*/^(,]$/.test(currentExpr.trim());
+    if (!trailingOp) {
+      try {
+        const v  = safeEval(currentExpr);
+        const vf = formatNum(typeof v === 'number' || typeof v === 'string' ? v : null);
+        if (vf) elPreview.textContent = '≈ ' + vf;
+        else    elPreview.textContent = '\u00A0';
+      } catch { elPreview.textContent = '\u00A0'; }
+    } else { elPreview.textContent = '\u00A0'; }
+  }, 160);
+}
+
+function updateMemPill() {
+  if (memValue !== 0) {
+    elMem.textContent = 'M = ' + formatNum(memValue);
+    elMem.classList.remove('hidden');
+  } else {
+    elMem.classList.add('hidden');
+  }
+}
+
+function animateResult(value, isError = false) {
+  elResult.classList.remove('pop', 'shake');
+  void elResult.offsetWidth;
+  elResult.textContent = value;
+  elResult.style.color = isError ? 'var(--danger)' : '';
+  elResult.classList.add(isError ? 'shake' : 'pop');
+}
+
+function getErrorMsg(err) {
+  const m = String(err?.message || '').toLowerCase();
+  if (m.includes('divide') || m.includes('division') || m.includes('zero')) return 'Cannot divide by zero';
+  if (m.includes('domain')) return 'Math domain error';
+  if (m.includes('undefined') || m.includes('unexpected')) return 'Check parentheses & syntax';
+  if (m.includes('overflow') || m.includes('infinity')) return 'Result out of range';
+  return 'Invalid expression';
+}
+
+/* ════════════════════════════════════════════════════
+   HISTORY
+════════════════════════════════════════════════════ */
+const histList  = document.getElementById('histList');
+const histEmpty = document.getElementById('histEmpty');
+
+function addToHistory(expr, result) {
+  if (histEmpty) histEmpty.remove();
+  const item = document.createElement('div');
+  item.className = 'hist-item';
+  item.innerHTML = `
+    <div class="hist-item-body">
+      <div class="hist-item-expr">${expr}</div>
+      <div class="hist-item-result">= ${result}</div>
+    </div>
+    <button class="hist-item-use" title="Reuse result" aria-label="Use this result">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="9 18 15 12 9 6"/></svg>
+    </button>`;
+  item.querySelector('.hist-item-use').addEventListener('click', () => {
+    currentExpr = String(result);
+    updateDisplay();
+    document.getElementById('tab-calc').click();
+  });
+  histList.prepend(item);
+}
+
+/* ════════════════════════════════════════════════════
+   EVALUATE
+════════════════════════════════════════════════════ */
+function doEquals() {
+  if (!currentExpr.trim()) return;
+  try {
+    const val = safeEval(currentExpr);
+    const fmt = formatNum(val);
+    ansValue = typeof val === 'number' ? val : parseFloat(fmt);
+    lastGoodResult = fmt;
+    animateResult(fmt, false);
+    addToHistory(currentExpr, fmt);
+    document.getElementById('stepBox').classList.add('hidden');
+    document.getElementById('stepBox').dataset.expr = currentExpr;
+  } catch(err) {
+    animateResult(getErrorMsg(err), true);
+  }
+}
+
+/* ════════════════════════════════════════════════════
+   KEY HANDLERS
+════════════════════════════════════════════════════ */
+document.querySelectorAll('[data-ins]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    currentExpr += btn.dataset.ins;
+    updateDisplay();
+  });
+});
+
+document.querySelectorAll('[data-act]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    const act = btn.dataset.act;
+    switch (act) {
+      case 'ac':
+        currentExpr = '';
+        animateResult('0', false);
+        elPreview.textContent = '\u00A0';
+        elResult.style.color = '';
+        document.getElementById('stepBox').classList.add('hidden');
+        break;
+      case 'del':
+        currentExpr = currentExpr.slice(0, -1);
+        break;
+      case 'equals':
+        doEquals();
+        return;
+      case 'negate':
+        currentExpr = currentExpr === '' ? '-' : '(' + currentExpr + ')*-1';
+        break;
+      case 'mplus':
+        try { memValue += Number(safeEval(currentExpr || lastGoodResult)); updateMemPill(); } catch {}
+        break;
+      case 'mminus':
+        try { memValue -= Number(safeEval(currentExpr || lastGoodResult)); updateMemPill(); } catch {}
+        break;
+      case 'mr':
+        currentExpr += String(memValue);
+        break;
+      case 'mc':
+        memValue = 0;
+        updateMemPill();
+        break;
+      case '2nd':
+        toggle2nd();
+        return;
+    }
+    updateDisplay();
+  });
+});
+
+/* 2nd function layer */
+let is2nd = false;
+const SIN_PRIMARY  = ['sin(', 'cos(', 'tan('];
+const SIN_SECONDARY = ['asin(', 'acos(', 'atan('];
+const sinKeys = ['key-sin', 'key-cos', 'key-tan'];
+const sinLabels = ['sin', 'cos', 'tan'];
+const sinInv    = ['sin⁻¹', 'cos⁻¹', 'tan⁻¹'];
+function toggle2nd() {
+  is2nd = !is2nd;
+  const btn2nd = document.getElementById('key-2nd');
+  btn2nd.style.color = is2nd ? 'var(--accent)' : '';
+  btn2nd.style.borderColor = is2nd ? 'rgba(124,109,240,0.5)' : '';
+  sinKeys.forEach((id, i) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.textContent = is2nd ? sinInv[i] : sinLabels[i];
+    el.dataset.ins  = is2nd ? SIN_SECONDARY[i] : SIN_PRIMARY[i];
+  });
+}
+
+/* Quick bar buttons */
+document.getElementById('angleToggle').addEventListener('click', () => {
+  angleMode = angleMode === 'deg' ? 'rad' : 'deg';
+  elAngle.textContent = angleMode.toUpperCase();
+});
+document.getElementById('fracBtn').addEventListener('click', () => {
+  currentExpr += '/';
+  updateDisplay();
+});
+document.getElementById('modBtn').addEventListener('click', () => {
+  currentExpr += '%';
+  updateDisplay();
+});
+
+/* ════════════════════════════════════════════════════
+   KEYBOARD INPUT
+════════════════════════════════════════════════════ */
+document.addEventListener('keydown', ev => {
+  if (ev.target.tagName === 'INPUT' || ev.target.tagName === 'TEXTAREA') return;
+  if (document.getElementById('panel-calc').classList.contains('hidden')) return;
+  const k = ev.key;
+  if (/^[0-9+\-*/.()^%]$/.test(k))    { ev.preventDefault(); currentExpr += k; updateDisplay(); }
+  else if (k === 'Enter')               { ev.preventDefault(); doEquals(); }
+  else if (k === 'Backspace')           { ev.preventDefault(); currentExpr = currentExpr.slice(0,-1); updateDisplay(); }
+  else if (k === 'Escape')             { ev.preventDefault(); currentExpr=''; animateResult('0',false); elPreview.textContent='\u00A0'; }
+  else if (k.toLowerCase() === 's')    { currentExpr += 'sin('; updateDisplay(); }
+  else if (k.toLowerCase() === 'c')    { currentExpr += 'cos('; updateDisplay(); }
+  else if (k.toLowerCase() === 't')    { currentExpr += 'tan('; updateDisplay(); }
+  else if (k.toLowerCase() === 'l')    { currentExpr += 'log('; updateDisplay(); }
+  else if (k.toLowerCase() === 'n')    { currentExpr += 'ln(';  updateDisplay(); }
+  else if (k.toLowerCase() === 'r')    { currentExpr += 'sqrt(';updateDisplay(); }
+  else if (k.toLowerCase() === 'p')    { currentExpr += 'pi';   updateDisplay(); }
+});
+
+/* ════════════════════════════════════════════════════
+   COPY & SHARE
+════════════════════════════════════════════════════ */
+document.getElementById('copyBtn').addEventListener('click', async () => {
+  const text = elResult.textContent;
+  try {
+    await navigator.clipboard.writeText(text);
+  } catch {
+    const ta = document.createElement('textarea');
+    ta.value = text; document.body.appendChild(ta); ta.select();
+    document.execCommand('copy'); ta.remove();
+  }
+  const btn = document.getElementById('copyBtn');
+  const origTitle = btn.title;
+  btn.title = 'Copied!';
+  btn.style.color = 'var(--good)';
+  setTimeout(() => { btn.title = origTitle; btn.style.color=''; }, 1500);
+});
+
+document.getElementById('shareBtn').addEventListener('click', () => {
+  const c   = document.createElement('canvas');
+  c.width   = 960; c.height = 480;
+  const ctx = c.getContext('2d');
+
+  const g = ctx.createLinearGradient(0,0,960,480);
+  g.addColorStop(0, '#0a0a0a'); g.addColorStop(1, '#1a1a1a');
+  ctx.fillStyle = g; ctx.fillRect(0,0,960,480);
+
+  ctx.fillStyle = 'rgba(255,255,255,0.04)';
+  ctx.beginPath(); ctx.arc(820,80,200,0,Math.PI*2); ctx.fill();
+  ctx.fillStyle = 'rgba(255,255,255,0.03)';
+  ctx.beginPath(); ctx.arc(60,420,160,0,Math.PI*2); ctx.fill();
+
+  ctx.fillStyle = 'rgba(255,255,255,0.3)';
+  ctx.font = '600 18px Inter,sans-serif';
+  ctx.fillText('ClassWiz Studio', 48, 64);
+
+  ctx.fillStyle = 'rgba(255,255,255,0.5)';
+  ctx.font = '500 22px Space Grotesk,sans-serif';
+  ctx.fillText(elExpr.textContent.trim() || '', 48, 256);
+
+  ctx.fillStyle = '#ffffff';
+  const resultTxt = '= ' + elResult.textContent;
+  const fSize = resultTxt.length > 20 ? 52 : 68;
+  ctx.font = `700 ${fSize}px Space Grotesk,sans-serif`;
+  ctx.fillText(resultTxt, 48, 340);
+
+  ctx.fillStyle = 'rgba(160,160,160,0.5)';
+  ctx.font = '500 14px Inter,sans-serif';
+  ctx.fillText('classwiz.studio', 48, 440);
+
+  const a = document.createElement('a');
+  a.download = 'classwiz-result.png';
+  a.href = c.toDataURL('image/png');
+  a.click();
+});
+
+/* ════════════════════════════════════════════════════
+   STEP-BY-STEP
+════════════════════════════════════════════════════ */
+document.getElementById('stepsBtn').addEventListener('click', () => {
+  const box = document.getElementById('stepBox');
+  if (!box.classList.contains('hidden')) { box.classList.add('hidden'); return; }
+
+  const expr = box.dataset.expr;
+  if (!expr) {
+    box.innerHTML = '<div class="step-row">Run a calculation first, then tap ▸ Explain.</div>';
+    box.classList.remove('hidden');
+    return;
+  }
+
+  try {
+    const cleanedExpr = sanitizeExpr(expr);
+    const node  = mx.parse(cleanedExpr);
+    const steps = [];
+    const seen  = new Set();
+
+    function walk(n) {
+      if (!n) return;
+      if (n.type === 'ParenthesisNode') { walk(n.content); return; }
+      if (n.args) n.args.forEach(walk);
+      if (n.type === 'OperatorNode' || n.type === 'FunctionNode') {
+        try {
+          const s = n.toString();
+          const v = mx.evaluate(s);
+          const key = s + '=' + formatNum(v);
+          if (!seen.has(key)) { seen.add(key); steps.push({ src: s, val: formatNum(v) }); }
+        } catch {}
+      }
+    }
+    walk(node);
+
+    const final = mx.evaluate(cleanedExpr);
+    box.innerHTML = steps
+      .map(s => `<div class="step-row">${s.src} &nbsp;=&nbsp; ${s.val}</div>`)
+      .join('') +
+      `<div class="step-row">Result = ${formatNum(final)}</div>`;
+    box.classList.remove('hidden');
+  } catch {
+    box.innerHTML = '<div class="step-row">Could not break into steps — the result above is accurate.</div>';
+    box.classList.remove('hidden');
+  }
+});
+
+/* ════════════════════════════════════════════════════
+   GRAPHING
+════════════════════════════════════════════════════ */
+const graphCv  = document.getElementById('graphcv');
+const gctx     = graphCv.getContext('2d');
+let viewRange  = 10;
+let graphFnStr = 'sin(x)*x';
+
+function getThemeColors() {
+  const dark = document.body.getAttribute('data-theme') === 'dark';
+  return {
+    grid:    dark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.07)',
+    axis:    dark ? 'rgba(255,255,255,0.25)' : 'rgba(0,0,0,0.30)',
+    fn:      dark ? '#c0c0c0'               : '#222222',
+    fnGlow:  dark ? 'rgba(200,200,200,0.2)' : 'rgba(0,0,0,0.15)',
+    bg:      dark ? '#0a0a0a'               : '#f7f7f7',
+    text:    dark ? 'rgba(200,200,200,0.35)' : 'rgba(0,0,0,0.4)',
+  };
+}
+
+function drawGraph(fnStr) {
+  graphFnStr = fnStr || graphFnStr;
+  const w = graphCv.width, h = graphCv.height;
+  const ox = w / 2, oy = h / 2;
+  const scaleX = w / (viewRange * 2);
+  const scaleY = h / (viewRange * 2);
+  const col = getThemeColors();
+
+  gctx.clearRect(0, 0, w, h);
+
+  // Background
+  gctx.fillStyle = col.bg;
+  gctx.fillRect(0, 0, w, h);
+
+  // Grid lines
+  gctx.lineWidth = 1;
+  gctx.strokeStyle = col.grid;
+  for (let gx = -viewRange; gx <= viewRange; gx++) {
+    const px = ox + gx * scaleX;
+    gctx.beginPath(); gctx.moveTo(px, 0); gctx.lineTo(px, h); gctx.stroke();
+  }
+  for (let gy = -viewRange; gy <= viewRange; gy++) {
+    const py = oy - gy * scaleY;
+    gctx.beginPath(); gctx.moveTo(0, py); gctx.lineTo(w, py); gctx.stroke();
+  }
+
+  // Tick labels
+  gctx.fillStyle = col.text;
+  gctx.font = '11px Inter,sans-serif';
+  gctx.textAlign = 'center';
+  for (let gx = -viewRange; gx <= viewRange; gx += Math.max(1, Math.floor(viewRange/5))) {
+    if (gx === 0) continue;
+    gctx.fillText(gx, ox + gx * scaleX, oy + 14);
+  }
+  gctx.textAlign = 'right';
+  for (let gy = -viewRange; gy <= viewRange; gy += Math.max(1, Math.floor(viewRange/5))) {
+    if (gy === 0) continue;
+    gctx.fillText(gy, ox - 5, oy - gy * scaleY + 4);
+  }
+
+  // Axes
+  gctx.lineWidth = 1.5;
+  gctx.strokeStyle = col.axis;
+  gctx.beginPath(); gctx.moveTo(0, oy); gctx.lineTo(w, oy); gctx.stroke();
+  gctx.beginPath(); gctx.moveTo(ox, 0); gctx.lineTo(ox, h); gctx.stroke();
+
+  // Function
+  if (!fnStr) return;
+  try {
+    const fn = mx.compile(fnStr.replace(/y\s*=\s*/, ''));
+    const N = w * 2;
+    const pts = [];
+    let segment = [];
+
+    for (let i = 0; i <= N; i++) {
+      const xVal = (i / N) * viewRange * 2 - viewRange;
+      let yVal;
+      try { yVal = fn.evaluate({ x: xVal }); } catch { segment=[]; continue; }
+      if (typeof yVal !== 'number' || !isFinite(yVal)) { pts.push(null); continue; }
+      pts.push({ px: ox + xVal * scaleX, py: oy - yVal * scaleY });
+    }
+
+    // Glow pass
+    gctx.shadowColor = col.fnGlow;
+    gctx.shadowBlur  = 8;
+    gctx.strokeStyle = col.fn;
+    gctx.lineWidth   = 2.5;
+    gctx.lineJoin    = 'round';
+
+    let started = false;
+    gctx.beginPath();
+    for (const pt of pts) {
+      if (!pt) { started = false; continue; }
+      if (!started) { gctx.moveTo(pt.px, pt.py); started = true; }
+      else { gctx.lineTo(pt.px, pt.py); }
+    }
+    gctx.stroke();
+    gctx.shadowBlur = 0;
+  } catch {}
+}
+
+document.getElementById('plotBtn').addEventListener('click', () => {
+  drawGraph(document.getElementById('graphFn').value.trim());
+});
+document.getElementById('graphFn').addEventListener('keydown', e => {
+  if (e.key === 'Enter') drawGraph(document.getElementById('graphFn').value.trim());
+});
+document.getElementById('zoomIn').addEventListener('click',    () => { viewRange = Math.max(1, viewRange / 1.6); drawGraph(); });
+document.getElementById('zoomOut').addEventListener('click',   () => { viewRange = viewRange * 1.6; drawGraph(); });
+document.getElementById('zoomReset').addEventListener('click', () => { viewRange = 10; drawGraph(); });
+
+// Resize canvas properly
+function resizeGraph() {
+  const wrap = graphCv.parentElement;
+  const dpr  = window.devicePixelRatio || 1;
+  graphCv.width  = wrap.clientWidth  * dpr;
+  graphCv.height = 260 * dpr;
+  graphCv.style.width  = '100%';
+  graphCv.style.height = '260px';
+  gctx.scale(dpr, dpr);
+  drawGraph();
+}
+window.addEventListener('resize', () => clearTimeout(window._resizeT) || (window._resizeT = setTimeout(resizeGraph, 200)));
+setTimeout(resizeGraph, 100);
+
+/* ════════════════════════════════════════════════════
+   EQUATION SOLVER
+════════════════════════════════════════════════════ */
+const solveType = document.getElementById('solveType');
+function renderSolveFields() {
+  const sf = document.getElementById('solveFields');
+  if (solveType.value === 'quad') {
+    sf.innerHTML = `
+      <div class="field-group three">
+        <input type="number" id="qa" class="num-input" style="width:100%" placeholder="a" value="1">
+        <input type="number" id="qb" class="num-input" style="width:100%" placeholder="b" value="-5">
+        <input type="number" id="qc" class="num-input" style="width:100%" placeholder="c" value="6">
+      </div>
+      <div style="font-size:11px;color:var(--text-dim);margin-top:6px;">ax² + bx + c = 0</div>`;
+  } else {
+    sf.innerHTML = `
+      <div class="field-group three" style="margin-bottom:6px;">
+        <input type="number" id="la1" class="num-input" style="width:100%" placeholder="a₁" value="2">
+        <input type="number" id="lb1" class="num-input" style="width:100%" placeholder="b₁" value="1">
+        <input type="number" id="lc1" class="num-input" style="width:100%" placeholder="c₁" value="5">
+      </div>
+      <div class="field-group three">
+        <input type="number" id="la2" class="num-input" style="width:100%" placeholder="a₂" value="1">
+        <input type="number" id="lb2" class="num-input" style="width:100%" placeholder="b₂" value="-1">
+        <input type="number" id="lc2" class="num-input" style="width:100%" placeholder="c₂" value="1">
+      </div>
+      <div style="font-size:11px;color:var(--text-dim);margin-top:6px;">a₁x + b₁y = c₁ &nbsp;&amp;&nbsp; a₂x + b₂y = c₂</div>`;
+  }
+}
+solveType.addEventListener('change', renderSolveFields);
+renderSolveFields();
+
+document.getElementById('solveBtn').addEventListener('click', () => {
+  const out = document.getElementById('solveResult');
+  out.classList.remove('hidden');
+  if (solveType.value === 'quad') {
+    const a = +document.getElementById('qa').value,
+          b = +document.getElementById('qb').value,
+          c = +document.getElementById('qc').value;
+    const disc = b*b - 4*a*c;
+    if (disc >= 0) {
+      const r1 = (-b + Math.sqrt(disc)) / (2*a);
+      const r2 = (-b - Math.sqrt(disc)) / (2*a);
+      out.innerHTML = `
+        <div class="solve-row">Discriminant = ${formatNum(disc)}</div>
+        <div class="solve-row">x₁ = ${formatNum(r1)}</div>
+        <div class="solve-row">x₂ = ${formatNum(r2)}</div>`;
+    } else {
+      const re = -b / (2*a), im = Math.sqrt(-disc) / (2*a);
+      out.innerHTML = `
+        <div class="solve-row">Discriminant = ${formatNum(disc)} (complex)</div>
+        <div class="solve-row">x₁ = ${formatNum(re)} + ${formatNum(im)}i</div>
+        <div class="solve-row">x₂ = ${formatNum(re)} − ${formatNum(im)}i</div>`;
+    }
+  } else {
+    const a1=+document.getElementById('la1').value, b1=+document.getElementById('lb1').value, c1=+document.getElementById('lc1').value;
+    const a2=+document.getElementById('la2').value, b2=+document.getElementById('lb2').value, c2=+document.getElementById('lc2').value;
+    const det = a1*b2 - a2*b1;
+    if (Math.abs(det) < 1e-12) {
+      out.innerHTML = `<div class="solve-row">No unique solution (det = 0)</div>`;
+    } else {
+      const x = (c1*b2 - c2*b1)/det, y = (a1*c2 - a2*c1)/det;
+      out.innerHTML = `
+        <div class="solve-row">Determinant = ${formatNum(det)}</div>
+        <div class="solve-row">x = ${formatNum(x)}</div>
+        <div class="solve-row">y = ${formatNum(y)}</div>`;
+    }
+  }
+});
+
+/* ════════════════════════════════════════════════════
+   UNIT CONVERTER
+════════════════════════════════════════════════════ */
+const UNITS = {
+  length: { m:1, km:1000, cm:0.01, mm:0.001, mi:1609.344, yd:0.9144, ft:0.3048, in:0.0254 },
+  weight: { kg:1, g:0.001, mg:0.000001, lb:0.453592, oz:0.0283495, ton:1000 },
+  area:   { 'm²':1, 'km²':1e6, 'cm²':0.0001, 'ft²':0.092903, 'in²':0.00064516, acre:4046.86, hectare:10000 },
+  volume: { L:1, mL:0.001, 'm³':1000, gal:3.78541, qt:0.946353, pt:0.473176, cup:0.236588, floz:0.0295735 },
+  time:   { s:1, ms:0.001, min:60, hr:3600, day:86400, week:604800, year:31557600 },
+};
+
+const convCat   = document.getElementById('convCategory');
+const convFrom  = document.getElementById('convFrom');
+const convTo    = document.getElementById('convTo');
+const convInp   = document.getElementById('convInput');
+const convOut   = document.getElementById('convOutput');
+const convLabel = document.getElementById('convUnitLabel');
+
+function fillConvSelects() {
+  const cat = convCat.value;
+  if (cat === 'temp') {
+    const opts = ['°C', '°F', 'K'].map(u => `<option>${u}</option>`).join('');
+    convFrom.innerHTML = opts; convTo.innerHTML = opts;
+    convTo.selectedIndex = 1;
+  } else {
+    const keys = Object.keys(UNITS[cat]);
+    const opts = keys.map(u => `<option>${u}</option>`).join('');
+    convFrom.innerHTML = opts; convTo.innerHTML = opts;
+    convTo.selectedIndex = 1;
+  }
+  runConvert();
+}
+
+function tempConvert(v, from, to) {
+  let c;
+  if      (from === '°C') c = v;
+  else if (from === '°F') c = (v - 32) * 5/9;
+  else                    c = v - 273.15;
+  if      (to === '°C') return c;
+  else if (to === '°F') return c * 9/5 + 32;
+  else                  return c + 273.15;
+}
+
+function runConvert() {
+  const cat = convCat.value;
+  const val = parseFloat(convInp.value) || 0;
+  const from = convFrom.value, to = convTo.value;
+  let result;
+  if (cat === 'temp') result = tempConvert(val, from, to);
+  else                result = val * UNITS[cat][from] / UNITS[cat][to];
+  convOut.textContent  = formatNum(result);
+  convLabel.textContent = `${from} → ${to}`;
+}
+
+convCat.addEventListener('change', fillConvSelects);
+[convFrom, convTo, convInp].forEach(el => el.addEventListener('input', runConvert));
+fillConvSelects();
+
+/* ════════════════════════════════════════════════════
+   IMAGE OCR
+════════════════════════════════════════════════════ */
+const dropzone  = document.getElementById('dropzone');
+const imgInput  = document.getElementById('imgInput');
+const imgPreview= document.getElementById('imgPreview');
+const ocrStatus = document.getElementById('ocrStatus');
+const ocrEditRow= document.getElementById('ocrEditRow');
+const ocrExpr   = document.getElementById('ocrExpr');
+const ocrSteps  = document.getElementById('ocrSteps');
+
+dropzone.addEventListener('click', () => imgInput.click());
+dropzone.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') imgInput.click(); });
+
+// Drag & drop
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.style.borderColor='var(--accent)'; });
+dropzone.addEventListener('dragleave', () => { dropzone.style.borderColor=''; });
+dropzone.addEventListener('drop', e => {
+  e.preventDefault(); dropzone.style.borderColor='';
+  const file = e.dataTransfer.files[0];
+  if (file) processImageFile(file);
+});
+
+imgInput.addEventListener('change', () => {
+  const file = imgInput.files[0];
+  if (file) processImageFile(file);
+});
+
+async function processImageFile(file) {
+  const url = URL.createObjectURL(file);
+  imgPreview.src = url; imgPreview.style.display = 'block';
+  ocrStatus.classList.remove('hidden');
+  ocrEditRow.classList.add('hidden');
+  ocrSteps.classList.add('hidden');
+
+  try {
+    if (typeof Tesseract === 'undefined') throw new Error('no-lib');
+    const { data: { text } } = await Tesseract.recognize(file, 'eng');
+    let cleaned = text
+      .replace(/\n/g, ' ')
+      .replace(/[xX](?=\d)/g, '*')
+      .replace(/[×]/g, '*').replace(/[÷]/g, '/')
+      .replace(/[^0-9+\-*/^().a-zA-Z=√π ]/g, '')
+      .trim();
+    ocrExpr.value = cleaned;
+    ocrEditRow.classList.remove('hidden');
+  } catch {
+    ocrExpr.value = '';
+    ocrStatus.innerHTML = '<span style="color:var(--text-sub)">Could not auto-read — type the expression manually below.</span>';
+    ocrEditRow.classList.remove('hidden');
+    return;
+  } finally {
+    ocrStatus.classList.add('hidden');
+  }
+}
+
+document.getElementById('ocrSolveBtn').addEventListener('click', () => {
+  const e = ocrExpr.value.trim();
+  if (!e) return;
+  ocrSteps.classList.remove('hidden');
+  try {
+    const v = safeEval(e);
+    addToHistory(e, formatNum(v));
+    ocrSteps.innerHTML = `
+      <div class="step-row">Recognized: ${e}</div>
+      <div class="step-row">Result = ${formatNum(v)}</div>`;
+  } catch(err) {
+    ocrSteps.innerHTML = `<div class="step-row text-danger">${getErrorMsg(err)}</div>`;
+  }
+});
+
+/* ════════════════════════════════════════════════════
+   VOICE INPUT
+════════════════════════════════════════════════════ */
+const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+
+const NUM_WORDS = {
+  zero:0, one:1, two:2, three:3, four:4, five:5, six:6, seven:7,
+  eight:8, nine:9, ten:10, eleven:11, twelve:12, thirteen:13, fourteen:14, fifteen:15,
+  sixteen:16, seventeen:17, eighteen:18, nineteen:19, twenty:20, thirty:30, forty:40,
+  fifty:50, sixty:60, seventy:70, eighty:80, ninety:90, hundred:100, thousand:1000,
+};
+
+function wordsToMath(s) {
+  return s.toLowerCase()
+    .replace(/plus/g, '+')
+    .replace(/minus/g, '-')
+    .replace(/times|multiplied by/g, '*')
+    .replace(/divided by|over/g, '/')
+    .replace(/square root of/g, 'sqrt(')
+    .replace(/to the power of|raised to/g, '^')
+    .replace(/percent/g, '%')
+    .replace(/\bpi\b/g, 'pi')
+    .replace(/\bopen\s*(?:bracket|paren(?:thesis)?)\b/g, '(')
+    .replace(/\bclose\s*(?:bracket|paren(?:thesis)?)\b/g, ')')
+    .replace(/point/g, '.')
+    .replace(/\b(zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|thirteen|fourteen|fifteen|sixteen|seventeen|eighteen|nineteen|twenty|thirty|forty|fifty|sixty|seventy|eighty|ninety|hundred|thousand)\b/g,
+      w => NUM_WORDS[w] !== undefined ? NUM_WORDS[w] : w)
+    .replace(/\s+/g, '')
+    .trim();
+}
+
+const micBtn = document.getElementById('micBtn');
+micBtn.addEventListener('click', () => {
+  if (!SpeechRec) {
+    alert('Voice input not supported in this browser. Use Chrome or Edge on desktop.');
+    return;
+  }
+  const rec = new SpeechRec();
+  rec.lang = 'en-US';
+  rec.interimResults = false;
+  rec.maxAlternatives = 1;
+  micBtn.classList.add('mic-active');
+
+  rec.addEventListener('result', ev => {
+    const said = ev.results[0][0].transcript;
+    const mathStr = wordsToMath(said);
+    currentExpr += (currentExpr ? '' : '') + mathStr;
+    updateDisplay();
+    document.getElementById('tab-calc').click();
+  });
+  rec.addEventListener('error', () => alert('Microphone access denied or not available.'));
+  rec.addEventListener('end',   () => micBtn.classList.remove('mic-active'));
+  try { rec.start(); } catch { micBtn.classList.remove('mic-active'); }
+});
+
+/* ════════════════════════════════════════════════════
+   FORMULA REFERENCE
+════════════════════════════════════════════════════ */
+const FORMULAS = [
+  { cat:'Algebra', items:[
+    { n:'Quadratic formula',       f:'x = (−b ± √(b²−4ac)) / 2a',          kw:'quadratic roots solve',               ins:'(-1+sqrt(1^2-4*1*1))/(2*1)' },
+    { n:'Square of sum',           f:'(a+b)² = a² + 2ab + b²',              kw:'binomial expand square',              ins:'(1+1)^2' },
+    { n:'Square of difference',    f:'(a−b)² = a² − 2ab + b²',              kw:'binomial expand difference',          ins:'(1-1)^2' },
+    { n:'Difference of squares',   f:'a² − b² = (a+b)(a−b)',                kw:'factoring difference',                ins:'1^2-1^2' },
+    { n:'Cube of sum',             f:'(a+b)³ = a³+3a²b+3ab²+b³',           kw:'binomial cube expand',                ins:'(1+1)^3' },
+    { n:'Sum of cubes',            f:'a³+b³ = (a+b)(a²−ab+b²)',             kw:'factoring cube sum',                  ins:'' },
+    { n:'Difference of cubes',     f:'a³−b³ = (a−b)(a²+ab+b²)',            kw:'factoring cube difference',           ins:'' },
+    { n:'Exponent product rule',   f:'aᵐ · aⁿ = aᵐ⁺ⁿ',                    kw:'exponent law power',                  ins:'' },
+    { n:'Exponent quotient rule',  f:'aᵐ / aⁿ = aᵐ⁻ⁿ',                    kw:'exponent law power',                  ins:'' },
+    { n:'Power of a power',        f:'(aᵐ)ⁿ = aᵐⁿ',                        kw:'exponent law power',                  ins:'' },
+    { n:'Log of a product',        f:'log(mn) = log m + log n',             kw:'logarithm log product',               ins:'' },
+    { n:'Log of a quotient',       f:'log(m/n) = log m − log n',            kw:'logarithm log quotient',              ins:'' },
+    { n:'Log of a power',          f:'log(mⁿ) = n · log m',                kw:'logarithm log power',                 ins:'' },
+    { n:'AP nth term',             f:'aₙ = a + (n−1)d',                     kw:'arithmetic progression sequence AP',  ins:'1+(5-1)*2' },
+    { n:'AP sum of n terms',       f:'Sₙ = n/2 · [2a + (n−1)d]',           kw:'arithmetic progression series sum AP',ins:'5/2*(2*1+(5-1)*2)' },
+    { n:'GP nth term',             f:'aₙ = a · r^(n−1)',                    kw:'geometric progression sequence GP',   ins:'1*2^(5-1)' },
+    { n:'GP sum of n terms',       f:'Sₙ = a(rⁿ−1) / (r−1)',              kw:'geometric progression series sum GP', ins:'1*(2^5-1)/(2-1)' },
+  ]},
+  { cat:'Geometry & Mensuration', items:[
+    { n:'Circle — area',           f:'A = πr²',                             kw:'circle area round',     ins:'pi*5^2' },
+    { n:'Circle — circumference',  f:'C = 2πr',                             kw:'circle perimeter',      ins:'2*pi*5' },
+    { n:'Square — area',           f:'A = a²',                              kw:'square area',           ins:'5^2' },
+    { n:'Square — perimeter',      f:'P = 4a',                              kw:'square perimeter',      ins:'4*5' },
+    { n:'Rectangle — area',        f:'A = l × b',                           kw:'rectangle area',        ins:'4*5' },
+    { n:'Rectangle — perimeter',   f:'P = 2(l+b)',                          kw:'rectangle perimeter',   ins:'2*(4+5)' },
+    { n:'Triangle — area',         f:'A = ½ × b × h',                       kw:'triangle area',         ins:'0.5*5*4' },
+    { n:"Heron's formula",         f:'A = √[s(s−a)(s−b)(s−c)]',            kw:'triangle area heron',   ins:'sqrt(6*(6-4)*(6-5)*(6-3))' },
+    { n:'Parallelogram — area',    f:'A = b × h',                           kw:'parallelogram area',    ins:'5*4' },
+    { n:'Trapezoid — area',        f:'A = ½(a+b) × h',                     kw:'trapezoid area',        ins:'0.5*(3+5)*4' },
+    { n:'Rhombus — area',          f:'A = ½ d₁d₂',                         kw:'rhombus area',          ins:'0.5*4*6' },
+    { n:'Cube — volume',           f:'V = a³',                              kw:'cube volume',           ins:'5^3' },
+    { n:'Cube — surface area',     f:'S = 6a²',                             kw:'cube surface',          ins:'6*5^2' },
+    { n:'Cuboid — volume',         f:'V = l × b × h',                      kw:'cuboid box volume',     ins:'3*4*5' },
+    { n:'Cuboid — surface area',   f:'S = 2(lb+bh+hl)',                    kw:'cuboid surface',        ins:'2*(3*4+4*5+5*3)' },
+    { n:'Sphere — volume',         f:'V = 4/3 πr³',                        kw:'sphere volume',         ins:'4/3*pi*5^3' },
+    { n:'Sphere — surface area',   f:'S = 4πr²',                           kw:'sphere surface',        ins:'4*pi*5^2' },
+    { n:'Cylinder — volume',       f:'V = πr²h',                           kw:'cylinder volume',       ins:'pi*3^2*10' },
+    { n:'Cylinder — surface area', f:'S = 2πr(r+h)',                       kw:'cylinder surface',      ins:'2*pi*3*(3+10)' },
+    { n:'Cone — volume',           f:'V = 1/3 πr²h',                       kw:'cone volume',           ins:'1/3*pi*3^2*10' },
+    { n:'Cone — surface area',     f:'S = πr(r+l)',                         kw:'cone surface slant',    ins:'pi*3*(3+5)' },
+  ]},
+  { cat:'Trigonometry', items:[
+    { n:'Pythagorean identity',    f:'sin²θ + cos²θ = 1',                   kw:'identity trig',         ins:'' },
+    { n:'Tan–sec identity',        f:'1 + tan²θ = sec²θ',                   kw:'identity trig',         ins:'' },
+    { n:'Cot–csc identity',        f:'1 + cot²θ = csc²θ',                  kw:'identity trig',         ins:'' },
+    { n:'Sine sum formula',        f:'sin(A±B) = sinA cosB ± cosA sinB',    kw:'angle sum trig',        ins:'' },
+    { n:'Cosine sum formula',      f:'cos(A±B) = cosA cosB ∓ sinA sinB',   kw:'angle sum trig',        ins:'' },
+    { n:'Tangent sum formula',     f:'tan(A±B)=(tanA±tanB)/(1∓tanA tanB)', kw:'angle sum trig',        ins:'' },
+    { n:'Double angle — sine',     f:'sin 2θ = 2 sinθ cosθ',               kw:'double angle trig',     ins:'2*sin(45)*cos(45)' },
+    { n:'Double angle — cosine',   f:'cos 2θ = cos²θ − sin²θ',            kw:'double angle trig',     ins:'cos(45)^2-sin(45)^2' },
+    { n:'Law of sines',            f:'a/sinA = b/sinB = c/sinC',            kw:'triangle law sine',     ins:'' },
+    { n:'Law of cosines',          f:'c² = a²+b²−2ab·cosC',               kw:'triangle law cosine',   ins:'sqrt(3^2+4^2-2*3*4*cos(60))' },
+  ]},
+  { cat:'Calculus', items:[
+    { n:'Power rule',              f:"d/dx(xⁿ) = n·x^(n−1)",              kw:'derivative differentiation power',    ins:'' },
+    { n:'Derivative of sin',       f:'d/dx(sinx) = cosx',                  kw:'derivative differentiation trig',    ins:'' },
+    { n:'Derivative of cos',       f:'d/dx(cosx) = −sinx',                 kw:'derivative differentiation trig',    ins:'' },
+    { n:'Derivative of eˣ',        f:'d/dx(eˣ) = eˣ',                      kw:'derivative differentiation exp',     ins:'' },
+    { n:'Derivative of lnx',       f:'d/dx(ln x) = 1/x',                   kw:'derivative differentiation log',     ins:'' },
+    { n:'Product rule',            f:"(uv)' = u'v + uv'",                  kw:'derivative differentiation product', ins:'' },
+    { n:'Quotient rule',           f:"(u/v)' = (u'v − uv') / v²",         kw:'derivative differentiation quotient',ins:'' },
+    { n:'Chain rule',              f:'dy/dx = dy/du · du/dx',              kw:'derivative differentiation chain',   ins:'' },
+    { n:'Power rule (integral)',   f:'∫xⁿ dx = xⁿ⁺¹/(n+1) + C',          kw:'integration antiderivative power',   ins:'' },
+    { n:'Integral of 1/x',         f:'∫(1/x) dx = ln|x| + C',             kw:'integration antiderivative',         ins:'' },
+    { n:'Integral of eˣ',          f:'∫eˣ dx = eˣ + C',                    kw:'integration antiderivative exp',     ins:'' },
+    { n:'Integral of sinx',        f:'∫sinx dx = −cosx + C',               kw:'integration antiderivative trig',    ins:'' },
+  ]},
+  { cat:'Statistics & Probability', items:[
+    { n:'Mean',                    f:'x̄ = Σx / n',                          kw:'average mean statistics',            ins:'' },
+    { n:'Variance',                f:'σ² = Σ(x−μ)² / n',                   kw:'variance statistics spread',         ins:'' },
+    { n:'Standard deviation',      f:'σ = √(variance)',                     kw:'std dev statistics spread',          ins:'' },
+    { n:'Combination',             f:'ⁿCᵣ = n! / (r!(n−r)!)',               kw:'combinatorics choose nCr',           ins:'5!/(2!*(5-2)!)' },
+    { n:'Permutation',             f:'ⁿPᵣ = n! / (n−r)!',                  kw:'combinatorics arrange nPr',          ins:'5!/(5-2)!' },
+    { n:'Probability',             f:'P(E) = favourable / total',           kw:'probability',                        ins:'' },
+    { n:"Bayes' theorem",          f:'P(A|B) = P(B|A)·P(A) / P(B)',        kw:'probability conditional bayes',      ins:'' },
+  ]},
+  { cat:'Coordinate Geometry', items:[
+    { n:'Distance formula',        f:'d = √[(x₂−x₁)²+(y₂−y₁)²]',          kw:'distance points coordinate',         ins:'sqrt((4-1)^2+(5-2)^2)' },
+    { n:'Midpoint formula',        f:'M = ((x₁+x₂)/2 , (y₁+y₂)/2)',        kw:'midpoint coordinate',                ins:'(1+4)/2' },
+    { n:'Slope formula',           f:'m = (y₂−y₁) / (x₂−x₁)',             kw:'slope gradient line',                ins:'(5-2)/(4-1)' },
+    { n:'Line equation (slope)',   f:'y = mx + c',                          kw:'line equation linear',               ins:'' },
+    { n:'Circle equation',         f:'(x−h)²+(y−k)² = r²',                 kw:'circle equation',                    ins:'' },
+  ]},
+  { cat:'Physics', items:[
+    { n:'Velocity–time',           f:'v = u + at',                          kw:'kinematics motion',                  ins:'0+10*5' },
+    { n:'Position–time',           f:'s = ut + ½at²',                       kw:'kinematics displacement',            ins:'0*5+0.5*10*5^2' },
+    { n:'Velocity–displacement',   f:'v² = u² + 2as',                      kw:'kinematics motion',                  ins:'sqrt(0^2+2*10*100)' },
+    { n:"Newton's second law",     f:'F = ma',                              kw:'force mass acceleration',            ins:'5*9.8' },
+    { n:'Work done',               f:'W = F × d',                           kw:'work energy',                        ins:'10*5' },
+    { n:'Kinetic energy',          f:'KE = ½mv²',                           kw:'energy kinetic motion',              ins:'0.5*2*10^2' },
+    { n:'Potential energy',        f:'PE = mgh',                            kw:'energy gravity potential',           ins:'2*9.8*10' },
+    { n:'Power',                   f:'P = W / t',                           kw:'power energy time',                  ins:'100/10' },
+    { n:"Ohm's law",               f:'V = IR',                              kw:'voltage resistance current electric',ins:'2*5' },
+    { n:'Electric power',          f:'P = VI',                              kw:'power electric',                     ins:'10*2' },
+  ]},
+  { cat:'Finance & Misc', items:[
+    { n:'Simple interest',         f:'SI = PRT / 100',                      kw:'interest finance money simple',      ins:'1000*5*2/100' },
+    { n:'Compound interest',       f:'A = P(1+r/n)^(nt)',                   kw:'interest finance compound',          ins:'1000*(1+0.1/1)^(1*5)' },
+    { n:'Percentage change',       f:'% change = (new−old)/old × 100',      kw:'percentage change',                  ins:'(120-100)/100*100' },
+  ]},
+];
+
+function copyText(t) {
+  navigator.clipboard?.writeText(t).catch(() => {
+    const el = document.createElement('textarea');
+    el.value = t; document.body.appendChild(el); el.select();
+    document.execCommand('copy'); el.remove();
+  });
+}
+
+function buildFormulaHTML() {
+  return FORMULAS.map((g, gi) => `
+    <details class="fcat" ${gi===0?'open':''}>
+      <summary>${g.cat}<span class="toggle-icon">${gi===0?'−':'+'}</span></summary>
+      ${g.items.map(it => `
+        <div class="frow" data-kw="${(it.n+' '+it.kw).toLowerCase()}">
+          <div class="fmeta">
+            <div class="fname">${it.n}</div>
+            <div class="fexpr">${it.f}</div>
+          </div>
+          <div class="factions">
+            ${it.ins ? `<button class="fmini insertf" data-insert="${it.ins}" title="Insert into calculator" aria-label="Insert ${it.n}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+            </button>` : ''}
+            <button class="fmini copyf" data-copy="${it.f}" title="Copy formula" aria-label="Copy ${it.n}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>
+            </button>
+          </div>
+        </div>`).join('')}
+    </details>`).join('');
+}
+
+function initFormulaEvents() {
+  document.querySelectorAll('.insertf').forEach(b => {
+    b.addEventListener('click', () => {
+      currentExpr += (currentExpr ? '+' : '') + b.dataset.insert;
+      updateDisplay();
+      document.getElementById('tab-calc').click();
+    });
+  });
+  document.querySelectorAll('.copyf').forEach(b => {
+    b.addEventListener('click', () => copyText(b.dataset.copy));
+  });
+  // Fix toggle icons
+  document.querySelectorAll('details.fcat').forEach(d => {
+    d.addEventListener('toggle', () => {
+      const icon = d.querySelector('.toggle-icon');
+      if (icon) icon.textContent = d.open ? '−' : '+';
+    });
+  });
+}
+
+document.getElementById('formulaList').innerHTML = buildFormulaHTML();
+initFormulaEvents();
+
+document.getElementById('formulaSearch').addEventListener('input', e => {
+  const q = e.target.value.trim().toLowerCase();
+  document.querySelectorAll('#formulaList .fcat').forEach(cat => {
+    let visible = 0;
+    cat.querySelectorAll('.frow').forEach(row => {
+      const match = !q || row.dataset.kw.includes(q);
+      row.classList.toggle('fhidden', !match);
+      if (match) visible++;
+    });
+    cat.style.display = visible ? '' : 'none';
+    if (q && visible) cat.open = true;
+  });
+});
+
+/* ════════════════════════════════════════════════════
+   INIT
+════════════════════════════════════════════════════ */
+updateDisplay();
+</script>
+</body>
+</html>
