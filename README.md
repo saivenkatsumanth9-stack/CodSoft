@@ -9,6 +9,7 @@ A collection of projects built during the **CodSoft Web Development Internship**
 | Task | Project | Description | Live Preview |
 |------|---------|-------------|--------------|
 | Task 1 | [Portfolio](./portfolio/) | Modern, premium developer portfolio built with Vite, React, TypeScript, and Framer Motion | Run `npm run dev` |
+| Task 2 | [Landing Page](./Task-2-Landing-Page/) | Premium, modern FutureTech AI Solutions landing page built with HTML, CSS, and Vanilla JavaScript | Open `index.html` |
 | Task 3 | [Scientific Calculator](./Task-3-Scientific-Calculator/) | Casio ClassWiz-inspired scientific calculator with graphing, OCR, voice input & unit converter | Open `index.html` |
 
 ---
